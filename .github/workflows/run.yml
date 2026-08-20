@@ -11,6 +11,7 @@ on:
 
 concurrency:
   group: find-mods
+  cancel-in-progress: true
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -20,6 +21,10 @@ jobs:
       run: go build -v ./...
     - name: Run
       run: ./TheLunarChallengeMods
+    - name: Configure Git identity
+      run: |
+         git config --global user.name "github-actions[bot]"
+         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
     - name: Update mod list
       run: |
         git switch --orphan output
