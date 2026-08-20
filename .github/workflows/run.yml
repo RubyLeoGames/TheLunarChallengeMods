@@ -12,7 +12,7 @@ on:
 concurrency:
   group: find-mods
 jobs:
-  build:
+  run:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
@@ -21,7 +21,7 @@ jobs:
     - name: Run
       run: ./TheLunarChallengeMods
     - name: Update mod list
-      run:
+      run: |
         git switch --orphan output
         git add mods.json
         git commit -m "Update mod list"
