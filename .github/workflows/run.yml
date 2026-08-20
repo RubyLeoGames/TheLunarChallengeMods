@@ -1,0 +1,28 @@
+name: Update mod list
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: 22 0 * * *
+  workflow_dispatch:
+
+concurrency:
+  group: find-mods
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - name: Build
+      run: go build -v ./...
+    - name: Run
+      run: ./TheLunarChallengeMods
+    - name: Update mod list
+      run:
+        git switch --orphan output
+        git add mods.json
+        git commit -m "Update mod list"
+        git push
