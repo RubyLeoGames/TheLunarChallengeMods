@@ -12,6 +12,8 @@ on:
 concurrency:
   group: find-mods
   cancel-in-progress: true
+permissions:
+  contents: write
 jobs:
   run:
     runs-on: ubuntu-latest
