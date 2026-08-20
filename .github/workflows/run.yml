@@ -30,4 +30,4 @@ jobs:
         git switch --orphan output
         git add mods.json
         git commit -m "Update mod list"
-        git push
+        git push --set-upstream origin output
