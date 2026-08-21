@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -32,15 +33,23 @@ type Mod struct {
 	DownloadURL string `json:"download_url"`
 }
 
+func mustParseURL(rawURL string) *url.URL {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
+var rawContent = mustParseURL("https://raw.githubusercontent.com")
+
+const archiveFormat = "zipball"
+const infoFile = "info.json"
+
 func main() {
 	topic := "tlc-mod"
 	baseURL := "https://api.github.com/search/repositories?per_page=100"
-	rawContent, err := url.Parse("https://raw.githubusercontent.com")
-	if err != nil {
-		log.Fatal(err)
-	}
 	filename := "mods.json"
-	archiveFormat := "zipball"
 	nextPagePattern, err := regexp.Compile(`<(\S*)>; rel=\"next\"`)
 	if err != nil {
 		log.Fatal(err)
@@ -77,36 +86,18 @@ func main() {
 			} else {
 				morePages = false
 			}
+		} else {
+			morePages = false
 		}
 
 		repos := data.Items
 		log.Printf("Processing %d repos", len(repos))
 		for _, repo := range repos {
-			rawContent.Path = repo.FullName + "/refs/heads/" + repo.DefaultBranch + "/info.json"
-			log.Printf("Fetching %s", rawContent.String())
-			resp, err := http.Get(rawContent.String())
+			mod, err := ProcessRepo(repo)
 			if err != nil {
-				log.Printf("Failed fetching: %s", err)
+				log.Printf("Skipping %s: %s", repo.FullName, err)
 				continue
 			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				log.Printf("Returned error: %s", resp.Status)
-				continue
-			}
-			var modInfo ModInfo
-			err = json.NewDecoder(resp.Body).Decode(&modInfo)
-			if err != nil {
-				log.Printf("Failed parsing: %s", err)
-				continue
-			}
-
-			var mod Mod
-			mod.ModInfo = modInfo
-			archive := repo.ArchiveURL
-			archive = strings.ReplaceAll(u, "{archive_format}", archiveFormat)
-			archive = strings.ReplaceAll(u, "{/ref}", "/"+repo.DefaultBranch)
-			mod.DownloadURL = archive
 			mods = append(mods, mod)
 			log.Printf("Added %s as mod", repo.FullName)
 		}
@@ -124,4 +115,30 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func ProcessRepo(repo Repo) (Mod, error) {
+	rawContent.Path = repo.FullName + "/refs/heads/" + repo.DefaultBranch + "/" + infoFile
+	log.Printf("Fetching %s", rawContent.String())
+	resp, err := http.Get(rawContent.String())
+	var mod Mod
+	if err != nil {
+		return mod, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return mod, fmt.Errorf("Couldn't fetch %s: %s", infoFile, resp.Status)
+	}
+	var modInfo ModInfo
+	err = json.NewDecoder(resp.Body).Decode(&modInfo)
+	if err != nil {
+		return mod, err
+	}
+
+	mod.ModInfo = modInfo
+	u := repo.ArchiveURL
+	u = strings.ReplaceAll(u, "{archive_format}", archiveFormat)
+	u = strings.ReplaceAll(u, "{/ref}", "/"+repo.DefaultBranch)
+	mod.DownloadURL = u
+	return mod, nil
 }
